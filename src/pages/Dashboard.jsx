@@ -132,7 +132,7 @@ export function Dashboard() {
 					<div className='flex flex-wrap justify-center sm:justify-between items-center py-4'>
 						{/* header */}
 						<h1 className='text-3xl sm:text-5xl text-alice font-jetBrain py-6'>
-							{userName != 'rimane' ? (
+							{userName != 'rimane' || userName != 'riri' ? (
 								<span>
 									{' '}
 									Welcome back, <span className='text-fluo capitalize'>{userName}</span>{' '}
@@ -154,24 +154,25 @@ export function Dashboard() {
 						</h1>
 
 						{/* action buttons */}
-						<div className='flex flex-wrap justify-around  lg:flex-col gap-4 sm:justify-end items-end font-jetBrain'>
+						<div className='flex flex-wrap flex-col w-full sm:w-[150px] sm:flex-row justify-around lg:flex-col gap-4 sm:justify-end items-end font-jetBrain'>
 							<button
 								type='button'
 								onClick={openModal}
-								className='rounded-lg bg-alice min-w-[145px] flex justify-center items-center gap-2 px-4 py-2 text-sm font-medium text-navy hover:bg-alice/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/75'>
-								<span>Add income</span> <BsCurrencyExchange />
+								className='rounded-lg bg-alice min-w-[145px] w-full sm:w-auto flex justify-center items-center gap-2 px-4 py-2 text-sm font-medium text-navy hover:bg-alice/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/75'>
+								<span>Income</span> <BsCurrencyExchange />
 							</button>
 							<button
 								type='button'
 								onClick={toggleBudgetForm}
-								className='rounded-lg bg-alice min-w-[145px] flex justify-center items-center gap-2 px-4 py-2 text-sm font-medium text-navy hover:bg-alice/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/75'>
-								<span>Add Budget</span> <BsCalculator />
+								className='rounded-lg bg-alice min-w-[145px] w-full sm:w-auto flex justify-center items-center gap-2 px-4 py-2 text-sm font-medium text-navy hover:bg-alice/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/75'>
+								<span>Budget</span> <BsCalculator />
 							</button>
 							<button
 								type='button'
+								disabled={!budgets || budgets.length < 1}
 								onClick={toggleExpenseForm}
-								className='rounded-lg bg-alice min-w-[145px] flex justify-center items-center gap-2 px-4 py-2 text-sm font-medium text-navy hover:bg-alice/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/75'>
-								<span>Add Expense</span> <BsCartCheck />
+								className='rounded-lg bg-alice min-w-[145px] w-full sm:w-auto flex justify-center items-center gap-2 px-4 py-2 text-sm font-medium text-navy hover:bg-alice/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/75'>
+								<span>Expense</span> <BsCartCheck />
 							</button>
 						</div>
 
