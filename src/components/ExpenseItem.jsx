@@ -1,15 +1,34 @@
-import { Link, useFetcher } from "react-router-dom";
-import { FiXCircle } from "react-icons/fi";
-import { formatCurrency, getAllMatchingItems, formatDate } from "../helpers";
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { FiXCircle } from 'react-icons/fi';
+import { formatCurrency, getAllMatchingItems, formatDate } from '../helpers';
+import React from 'react';
 
-export function ExpenseItem({ expense, showBudget }) {
-	const fetcher = useFetcher();
+export function ExpenseItem({ expense, showBudget, onDelete }) {
+	const [budget, setBudget] = useState(null);
 
-	const budget = getAllMatchingItems({
-		category: "budgets",
-		key: "id",
-		value: expense.budgetId,
-	})[0];
+	useEffect(() => {
+		const fetchBudget = async () => {
+			if (expense.budget_id) {
+				const budgets = await getAllMatchingItems({
+					category: 'budgets',
+					key: 'id',
+					value: expense.budget_id,
+				});
+				setBudget(budgets[0]);
+			}
+		};
+
+		fetchBudget();
+	}, [expense.budget_id]);
+
+	if (!expense || !expense.id) {
+		return <td className='text-tomato'>Expense not found</td>;
+	}
+
+	if (!expense.budget_id) {
+		return <td className='text-tomato'>Budget ID not found for this expense</td>;
+	}
 
 	return (
 		<>
@@ -18,24 +37,20 @@ export function ExpenseItem({ expense, showBudget }) {
 				{formatCurrency(expense.amount)}
 			</td>
 			<td className='text-navy text-xs sm:text-base text-center'>
-				{formatDate(expense.createdAt)}
+				{formatDate(expense.created_at)}
 			</td>
-			{showBudget && (
+			{showBudget && budget && (
 				<td className='text-navy text-sm sm:text-base text-center'>
 					<Link to={`/budget/${budget.id}`}>{budget.name}</Link>
 				</td>
 			)}
 			<td>
-				<fetcher.Form method='post'>
-					<input type='hidden' name='_action' value='deleteExpense' />
-					<input type='hidden' name='expenseId' value={expense.id} />
-					<button
-						type='submit'
-						className='text-center btn btn--warning'
-						aria-label={`Delete ${expense.name} expense`}>
-						<FiXCircle className='text-tomato' width={20} />
-					</button>
-				</fetcher.Form>
+				<button
+					onClick={() => onDelete(expense.id)}
+					className='text-center btn btn--warning'
+					aria-label={`Delete ${expense.name} expense`}>
+					<FiXCircle className='text-tomato' width={20} />
+				</button>
 			</td>
 		</>
 	);

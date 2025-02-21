@@ -5,70 +5,83 @@ import { useNavigate } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
 import { FaRegUser } from 'react-icons/fa6';
 import { toast } from 'react-toastify';
-import { deleteItem, getDate } from '../../helpers';
+import { getDate } from '../../helpers';
 import * as ExcelJS from 'exceljs';
+import supabase from '../../services/supabase';
 
 function classNames(...classes) {
 	return classes.filter(Boolean).join(' ');
 }
 
-function logout() {
-	deleteItem({
-		key: 'userName',
-	});
-	deleteItem({
-		key: 'income',
-	});
-	deleteItem({
-		key: 'budgets',
-	});
-	deleteItem({
-		key: 'expenses',
-	});
-
-	toast.success('You’ve deleted your account!');
-	window.location.replace('/');
+async function logout() {
+	const { error } = await supabase.auth.signOut();
+	if (error) {
+		toast.error('Error signing out');
+		return;
+	}
+	toast.success('Signed out successfully');
+	window.location.replace('/login');
 }
 
-function resetData() {
-	deleteItem({
-		key: 'income',
-	});
-	deleteItem({
-		key: 'expenses',
-	});
-	toast.success('Data has been reset!');
-	window.location.reload();
+async function resetData() {
+	const {
+		data: { user },
+	} = await supabase.auth.getUser();
+	if (!user) return;
+
+	try {
+		// Delete all user data
+		await Promise.all([
+			supabase.from('budgets').delete().eq('user_id', user.id),
+			supabase.from('expenses').delete().eq('user_id', user.id),
+			supabase.from('user_settings').delete().eq('user_id', user.id),
+		]);
+
+		toast.success('Data has been reset!');
+		window.location.reload();
+	} catch (error) {
+		toast.error('Failed to reset data');
+	}
 }
 
-function downloadDataAsJson() {
-	const storedObjects = {
-		userName: JSON.parse(localStorage.getItem('userName')),
-		income: JSON.parse(localStorage.getItem('income')),
-		budgets: JSON.parse(localStorage.getItem('budgets')),
-		expenses: JSON.parse(localStorage.getItem('expenses')),
-	};
+async function downloadDataAsJson() {
+	const {
+		data: { user },
+	} = await supabase.auth.getUser();
 
-	console.log('stored data to json', storedObjects);
-
-	if (!storedObjects.userName || !storedObjects.budgets) {
-		console.error('No data to download.');
-		toast.error('Incomplete data in  storage. Cannot download  file.');
+	if (!user) {
+		toast.error('Please sign in to export data');
 		return;
 	}
 
-	const jsonString = JSON.stringify(storedObjects, null, 2);
-	const blob = new Blob([jsonString], { type: 'application/json' });
+	const { data: budgets } = await supabase.from('budgets').select('*').eq('user_id', user.id);
 
-	const downloadLink = document.createElement('a');
-	downloadLink.href = URL.createObjectURL(blob);
-	downloadLink.download = 'objects.json';
+	const { data: expenses } = await supabase.from('expenses').select('*').eq('user_id', user.id);
 
-	document.body.appendChild(downloadLink);
-	downloadLink.click();
-	document.body.removeChild(downloadLink);
+	const { data: settings } = await supabase
+		.from('user_settings')
+		.select('*')
+		.eq('user_id', user.id)
+		.single();
 
-	return toast.success('Your data has been downloaded!');
+	const exportData = {
+		budgets,
+		expenses,
+		settings,
+	};
+
+	const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+		type: 'application/json',
+	});
+
+	const url = URL.createObjectURL(blob);
+	const link = document.createElement('a');
+	link.href = url;
+	link.download = `pennysense-export-${new Date().toISOString()}.json`;
+	document.body.appendChild(link);
+	link.click();
+	document.body.removeChild(link);
+	URL.revokeObjectURL(url);
 }
 
 function downloadDataAsExcel() {

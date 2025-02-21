@@ -1,14 +1,36 @@
-import { useState, Fragment } from 'react';
+import { useState, Fragment, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
-import { Form, Link } from 'react-router-dom';
-import { EditBudget } from '../components/EditBudget';
-import { FaRegTrashCan, FaMoneyCheckDollar, FaPen } from 'react-icons/fa6';
-import { calculateSpentByBudget, formatCurrency, formatPercentage } from '../helpers';
+import { Link, Form } from 'react-router-dom';
+import { EditBudget } from './EditBudget';
+import { FaRegTrashCan, FaPen, FaMoneyCheckDollar } from 'react-icons/fa6';
+import { formatCurrency, formatPercentage, calculateSpentByBudget } from '../helpers';
 
 export function BudgetItem({ budget, showDelete = false }) {
+	if (!budget || !budget.id) {
+		return null;
+	}
+
 	const { id, name, amount } = budget;
-	const spent = calculateSpentByBudget(id);
+	const [spent, setSpent] = useState(0);
 	const [showBudgetForm, setShowBudgetForm] = useState(false);
+
+	useEffect(() => {
+		let isMounted = true;
+
+		const getSpentAmount = async () => {
+			if (!id) return;
+			const spentAmount = await calculateSpentByBudget(id);
+			if (isMounted) {
+				setSpent(spentAmount);
+			}
+		};
+
+		getSpentAmount();
+
+		return () => {
+			isMounted = false;
+		};
+	}, [id]);
 
 	function toggleBudgetForm() {
 		setShowBudgetForm(!showBudgetForm);

@@ -1,13 +1,23 @@
-import { useEffect, useState } from "react";
-import { NavLink } from "react-router-dom";
-import { fetchData } from "../helpers";
-import { DropMenu } from "./utility/DropMenu";
+import { useEffect, useState } from 'react';
+import { NavLink } from 'react-router-dom';
+import { DropMenu } from './utility/DropMenu';
+import supabase from '../services/supabase';
 
 export function Navbar() {
 	const [user, setUser] = useState(null);
 
 	useEffect(() => {
-		setUser(fetchData("userName"));
+		supabase.auth.getUser().then(({ data: { user } }) => {
+			setUser(user);
+		});
+
+		const {
+			data: { subscription },
+		} = supabase.auth.onAuthStateChange((event, session) => {
+			setUser(session?.user);
+		});
+
+		return () => subscription.unsubscribe();
 	}, []);
 
 	return (
@@ -21,7 +31,7 @@ export function Navbar() {
 			</NavLink>
 
 			{user && (
-				<div className='list-none mr-4  justify-end items-center'>
+				<div className='list-none mr-4 justify-end items-center'>
 					<DropMenu />
 				</div>
 			)}

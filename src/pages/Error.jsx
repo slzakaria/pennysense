@@ -1,9 +1,9 @@
-import { useRouteError, Link, useNavigate } from "react-router-dom";
+import { useRouteError, Link, useNavigate } from 'react-router-dom';
 
 export function Error() {
 	const error = useRouteError();
 	const navigate = useNavigate();
-	console.log("ERROR PAGE CAUSED BY ======>", error);
+	console.log('ERROR PAGE CAUSED BY ======>', error.error);
 
 	return (
 		<div className='error h-screen'>

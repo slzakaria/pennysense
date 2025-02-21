@@ -1,105 +1,139 @@
-export const waait = () => new Promise((res) => setTimeout(res, Math.random() * 300));
+import supabase from './services/supabase';
 
 export const getDate = () => {
 	const currentDate = new Date();
-	const year = currentDate.getFullYear();
-	const month = currentDate.getMonth() + 1;
-	const day = currentDate.getDate();
-	return `${day}-${month}-${year}`;
+	return `${currentDate.getDate()}-${currentDate.getMonth() + 1}-${currentDate.getFullYear()}`;
 };
 
-export const fetchData = (key) => {
-	return JSON.parse(localStorage.getItem(key));
+export const formatCurrency = (amt) => {
+	return amt.toLocaleString(undefined, {
+		style: 'currency',
+		currency: 'USD',
+	});
 };
 
-export const getAllMatchingItems = ({ category, key, value }) => {
-	const data = fetchData(category) ?? [];
-	return data.filter((item) => item[key] === value);
-};
-
-export const getTotalBudgets = () => {
-	const budgets = fetchData('budgets') ?? [];
-	return budgets.reduce((acc, budget) => (acc += budget.amount), 0);
-};
-
-export const getTotalExpenses = () => {
-	const expenses = fetchData('expenses') ?? [];
-	return expenses.reduce((acc, expense) => (acc += expense.amount), 0);
-};
-
-export const deleteItem = ({ key, id }) => {
-	const existingData = fetchData(key);
-	if (id) {
-		const newData = existingData.filter((item) => item.id !== id);
-		return localStorage.setItem(key, JSON.stringify(newData));
+export const getTotalBudgets = async (userId) => {
+	if (!userId) {
+		console.warn('No user ID provided to getTotalBudgets');
+		return 0;
 	}
-	return localStorage.removeItem(key);
+
+	try {
+		const { data, error } = await supabase.from('budgets').select('amount').eq('user_id', userId);
+
+		if (error) {
+			console.error('Error fetching budgets:', error);
+			return 0;
+		}
+
+		return data ? data.reduce((acc, budget) => acc + Number(budget.amount), 0) : 0;
+	} catch (error) {
+		console.error('Error in getTotalBudgets:', error);
+		return 0;
+	}
 };
 
-export const createBudget = ({ name, amount }) => {
-	const newItem = {
-		id: crypto.randomUUID(),
-		name: name,
-		createdAt: getDate(),
-		amount: +amount,
-	};
-	const existingBudgets = fetchData('budgets') ?? [];
-	return localStorage.setItem('budgets', JSON.stringify([...existingBudgets, newItem]));
+export const getTotalExpenses = async (userId) => {
+	if (!userId) {
+		console.warn('No user ID provided to getTotalExpenses');
+		return 0;
+	}
+
+	try {
+		const { data, error } = await supabase.from('expenses').select('amount').eq('user_id', userId);
+
+		if (error) {
+			console.error('Error fetching expenses:', error);
+			return 0;
+		}
+
+		return data ? data.reduce((acc, expense) => acc + Number(expense.amount), 0) : 0;
+	} catch (error) {
+		console.error('Error in getTotalExpenses:', error);
+		return 0;
+	}
 };
 
-export const updateBudget = ({ id, name, amount }) => {
-	const existingBudgets = fetchData('budgets') ?? [];
-	const updatedBudgets = existingBudgets.map((budget) => {
-		if (budget.id !== id) return budget;
-		return {
-			...budget,
-			name: name,
+export const updateBudget = async ({ id, name, amount }) => {
+	const { data, error } = await supabase
+		.from('budgets')
+		.update({ name, amount: +amount })
+		.eq('id', id)
+		.select()
+		.single();
+
+	if (error) {
+		console.error('Error updating budget:', error);
+		throw error;
+	}
+
+	return data;
+};
+
+export const updateExpense = async ({ id, name, amount, budgetId }) => {
+	const { data, error } = await supabase
+		.from('expenses')
+		.update({
+			name,
 			amount: +amount,
-		};
-	});
-	return localStorage.setItem('budgets', JSON.stringify(updatedBudgets));
+			budget_id: budgetId,
+			updated_at: new Date().toISOString(),
+		})
+		.eq('id', id)
+		.select()
+		.single();
+
+	if (error) {
+		console.error('Error updating expense:', error);
+		throw error;
+	}
+
+	return data;
 };
 
-export const createExpense = ({ name, amount, budgetId }) => {
-	const budgetName = getAllMatchingItems({ category: 'budgets', key: 'id', value: budgetId })[0]
-		.name;
-	const newItem = {
-		id: crypto.randomUUID(),
-		name: name,
-		createdAt: getDate(),
-		amount: +amount,
-		budgetId: budgetId,
-		budgetName: budgetName,
-	};
-	const existingExpenses = fetchData('expenses') ?? [];
-	return localStorage.setItem('expenses', JSON.stringify([...existingExpenses, newItem]));
-};
+export const calculateSpentByBudget = async (budgetId) => {
+	if (!budgetId) {
+		console.warn('No budget ID provided to calculateSpentByBudget');
+		return 0;
+	}
 
-export const updateExpense = ({ id, name, amount, budgetId }) => {
-	const existingExpenses = fetchData('expenses') ?? [];
-	const updatedExpenses = existingExpenses.map((expense) => {
-		if (expense.id !== id) return expense;
-		return {
-			...expense,
-			name: name,
-			amount: +amount,
-			budgetId: budgetId,
-		};
-	});
-	return localStorage.setItem('expenses', JSON.stringify(updatedExpenses));
-};
+	try {
+		const {
+			data: { user },
+		} = await supabase.auth.getUser();
+		if (!user) {
+			console.warn('No authenticated user found');
+			return 0;
+		}
 
-export const calculateSpentByBudget = (budgetId) => {
-	const expenses = fetchData('expenses') ?? [];
-	const budgetSpent = expenses.reduce((acc, expense) => {
-		if (expense.budgetId !== budgetId) return acc;
-		return (acc += expense.amount);
-	}, 0);
-	return budgetSpent;
+		const { data, error } = await supabase
+			.from('expenses')
+			.select('amount')
+			.eq('budget_id', budgetId)
+			.eq('user_id', user.id);
+
+		if (error) {
+			console.error('Error calculating budget spending:', error);
+			return 0;
+		}
+
+		return data ? data.reduce((acc, expense) => acc + Number(expense.amount), 0) : 0;
+	} catch (error) {
+		console.error('Error in calculateSpentByBudget:', error);
+		return 0;
+	}
 };
 
 export const formatDateToLocaleString = (epoch) => new Date(epoch).toLocaleDateString();
-export const formatDate = (epoch) => epoch.replace(/-/g, '/');
+export const formatDate = (dateString) => {
+	if (!dateString) return '';
+
+	return new Date(dateString).toLocaleDateString('en-US', {
+		month: 'short',
+		day: 'numeric',
+		year: 'numeric',
+	});
+};
 
 export const formatPercentage = (amt) => {
 	return amt.toLocaleString(undefined, {
@@ -108,9 +142,53 @@ export const formatPercentage = (amt) => {
 	});
 };
 
-export const formatCurrency = (amt) => {
-	return amt.toLocaleString(undefined, {
-		style: 'currency',
-		currency: 'USD',
-	});
+export const getAllMatchingItems = async ({ category, key, value }) => {
+	try {
+		const {
+			data: { user },
+		} = await supabase.auth.getUser();
+		if (!user) {
+			console.warn('No authenticated user found in getAllMatchingItems');
+			return [];
+		}
+
+		if (!value) {
+			console.warn(`No value provided for ${key} in getAllMatchingItems`);
+			return [];
+		}
+
+		const { data, error } = await supabase
+			.from(category)
+			.select('*')
+			.eq(key, value)
+			.eq('user_id', user.id);
+
+		if (error) {
+			console.error(`Error fetching ${category}:`, error);
+			return [];
+		}
+
+		return data || [];
+	} catch (error) {
+		console.error('Error in getAllMatchingItems:', error);
+		return [];
+	}
+};
+
+export const deleteBudget = async (id) => {
+	const { error } = await supabase.from('budgets').delete().eq('id', id);
+
+	if (error) {
+		console.error('Error deleting budget:', error);
+		throw error;
+	}
+};
+
+export const deleteExpense = async (id) => {
+	const { error } = await supabase.from('expenses').delete().eq('id', id);
+
+	if (error) {
+		console.error('Error deleting expense:', error);
+		throw error;
+	}
 };

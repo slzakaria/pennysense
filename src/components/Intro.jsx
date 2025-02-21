@@ -1,83 +1,122 @@
-import { Form } from "react-router-dom";
-import { TypeAnimation } from "react-type-animation";
-import { fetchData } from "../helpers";
-import { FaUserPlus } from "react-icons/fa6";
-import { ImageSlider } from "../components/utility/ImageSlider";
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FaUserPlus } from 'react-icons/fa6';
+import { toast } from 'react-toastify';
+import { ImageSlider } from './utility/ImageSlider';
+import supabase from '../services/supabase';
 
 export function Intro() {
-	const userName = fetchData("userName");
+	const [loading, setLoading] = useState(false);
+	const navigate = useNavigate();
+
+	const handleSubmit = async (e) => {
+		e.preventDefault();
+		setLoading(true);
+
+		try {
+			const formData = new FormData(e.target);
+			const email = formData.get('email');
+			const password = formData.get('password');
+			const name = formData.get('userName');
+
+			const { data, error } = await supabase.auth.signUp({
+				email,
+				password,
+				options: {
+					data: {
+						name,
+					},
+				},
+			});
+
+			if (error) throw error;
+
+			const { error: settingsError } = await supabase.from('user_settings').insert({
+				user_id: data.user.id,
+				income: 0,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+			});
+
+			if (settingsError && settingsError.code !== '23505') {
+				console.error('Error creating user settings:', settingsError);
+			}
+
+			if (name.toLowerCase() === 'rimane' || name.toLowerCase() === 'riri') {
+				toast.success(`Hi baby, so glad you're trying it <3`);
+			} else {
+				toast.success(`Welcome, ${name}! Please check your email to verify your account.`);
+			}
+
+			navigate('/');
+		} catch (error) {
+			console.error('Error signing up:', error);
+			toast.error(error.message || 'There was a problem creating your account.');
+		} finally {
+			setLoading(false);
+		}
+	};
 
 	return (
-		<div className='mx-auto w-full px-1 py-2 sm:px-10 sm:4/5 sm:py-10'>
-			<div className='mt-6 sm:mt-24 mx-auto gap-x-6 lg:flex lg:items-center'>
-				<div className='w-full max-w-xl lg:shrink-0 xl:max-w-2xl'>
-					<h1 className='text-center sm:text-start text-4xl font-bold tracking-tight text-alice sm:text-6xl font-jetBrain'>
-						Master Your Finances with <br />
-						<span className='text-fluo'>Penny Sense</span>.
+		<div className='flex flex-col items-center justify-center min-h-screen'>
+			<div className='grid grid-cols-1 gap-8 text-center'>
+				<div className='sm:w-3/4 mx-auto'>
+					<h1 className='text-3xl sm:text-5xl text-alice font-jetBrain'>
+						Take Control of <span className='text-fluo'>Your Money</span>
 					</h1>
-					<p className='text-center sm:text-start relative mt-6 text-lg text-alice sm:max-w-md lg:max-w-none'>
-						Budgeting Made <span className='text-fluo font-bold'>Simple</span> , Results Made{" "}
-						<span className='text-fluo font-bold'>Significant</span>.
+					<p className='text-alice text-lg mt-4'>
+						Personal budgeting is the secret to financial freedom. Start your journey today.
 					</p>
 
-					<p className='text-center sm:text-start relative mt-1 text-lg leading-8 text-alice sm:max-w-md lg:max-w-none'>
-						Master your expenses : <br className='block sm:hidden' />
-						<TypeAnimation
-							className='relative px-2 rounded-sm text-sm sm:text-lg text-navy font-bold bg-fluo font-jetBrain'
-							sequence={[
-								"Interactive Budget Visualization",
-								1500,
-								"Customizable Budget Goals",
-								1500,
-								"Easy Expense Entry",
-								1500,
-								"Interactive graphs for insights",
-								1500,
-							]}
-							speed={40}
-							wrapper='span'
-							repeat={Infinity}
-						/>
-					</p>
-
-					{/* cta */}
-					{!userName ? (
-						<div className='sm:mt-12 mt-4 w-4/5 mx-auto sm:mx-0'>
-							<Form className='sm:text-start text-center  grid grid-cols-1' method='post'>
-								<input
-									className='text-navy rounded-lg py-2 px-4'
-									type='text'
-									name='userName'
-									required
-									placeholder='Enter a username'
-									aria-label='Your Name'
-									autoComplete='given-name'
-								/>
-								<input type='hidden' name='_action' value='newUser' />
-								<button
-									className='text-center group shadow-md bg-fluo text-black py-1.5 px-6 rounded-md my-2 hover:bg-fluo/80 transition-all duration-300 flex justify-center gap-2 items-center'
-									type='submit'>
-									<span className='text-lg px-2'>Start budgeting</span>
-									<span>
-										<FaUserPlus
-											className='group-transition-all group-duration-300 ml-2 text-black'
-											aria-hidden='true'
-										/>
-									</span>
-								</button>
-							</Form>
-							;
-						</div>
-					) : (
-						<div className='my-10 inline-block w-4/5 mx-auto'>
-							<button className='text-jetBrain text-fluo  hover:underline hover:bg-fluo hover:text-navy p-2 rounded-sm shadow-sm'>
-								Go to account
+					<div className='sm:mt-12 mt-4 w-4/5 mx-auto sm:mx-0'>
+						<form
+							onSubmit={handleSubmit}
+							className='sm:text-start text-center grid grid-cols-1 gap-4'>
+							<input
+								className='text-navy rounded-lg py-2 px-4'
+								type='text'
+								name='userName'
+								required
+								placeholder='Enter your name'
+								aria-label='Your Name'
+								autoComplete='given-name'
+							/>
+							<input
+								className='text-navy rounded-lg py-2 px-4'
+								type='email'
+								name='email'
+								required
+								placeholder='Enter your email'
+								aria-label='Your Email'
+								autoComplete='email'
+							/>
+							<input
+								className='text-navy rounded-lg py-2 px-4'
+								type='password'
+								name='password'
+								required
+								placeholder='Create a password'
+								aria-label='Your Password'
+								autoComplete='new-password'
+								minLength={6}
+							/>
+							<button
+								type='submit'
+								disabled={loading}
+								className='text-center group shadow-md bg-fluo text-black py-1.5 px-6 rounded-md my-2 hover:bg-fluo/80 transition-all duration-300 flex justify-center gap-2 items-center'>
+								{loading ? (
+									<span className='text-lg px-2'>Creating account...</span>
+								) : (
+									<>
+										<span className='text-lg px-2'>Start budgeting</span>
+										<FaUserPlus className='group-transition-all group-duration-300 ml-2 text-black' />
+									</>
+								)}
 							</button>
-						</div>
-					)}
+						</form>
+					</div>
 				</div>
 
-				{/* image tile */}
 				<div className='w-4/5 mx-auto'>
 					<ImageSlider />
 				</div>

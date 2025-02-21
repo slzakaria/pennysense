@@ -1,19 +1,44 @@
-import { useEffect, useRef } from "react";
-import { useFetcher } from "react-router-dom";
-import { FaFileCirclePlus } from "react-icons/fa6";
+import { useRef } from 'react';
+import { toast } from 'react-toastify';
+import supabase from '../services/supabase';
 
-export function AddExpenseForm({ budgets }) {
-	const fetcher = useFetcher();
-	const isSubmitting = fetcher.state === "submitting";
+export function AddExpenseForm({ budgets, onExpenseAdd }) {
 	const formRef = useRef();
-	const focusRef = useRef();
 
-	useEffect(() => {
-		if (!isSubmitting) {
+	const handleSubmit = async (e) => {
+		e.preventDefault();
+		const formData = new FormData(e.target);
+		const { name, amount, budgetId } = Object.fromEntries(formData);
+
+		try {
+			const { data: { user } } = await supabase.auth.getUser();
+			if (!user) {
+				toast.error('Please log in to add an expense');
+				return;
+			}
+
+			const { data, error } = await supabase
+				.from('expenses')
+				.insert({
+					name,
+					amount: +amount,
+					budget_id: budgetId,
+					user_id: user.id,
+					created_at: new Date().toISOString()
+				})
+				.select()
+				.single();
+
+			if (error) throw error;
+
+			toast.success('Expense added!');
 			formRef.current.reset();
-			focusRef.current.focus();
+			onExpenseAdd?.(data);
+		} catch (error) {
+			console.error('Error adding expense:', error);
+			toast.error('Failed to add expense');
 		}
-	}, [isSubmitting]);
+	};
 
 	return (
 		<div className='font-jetBrain max-w-[600px] p-6 bg-white rounded-2xl flex-1'>
@@ -24,24 +49,23 @@ export function AddExpenseForm({ budgets }) {
 				</span>{" "}
 				Expense
 			</h2>
-			<fetcher.Form method='post' className='grid gap-4 p-4' ref={formRef}>
+			<form ref={formRef} onSubmit={handleSubmit} className='grid gap-4 p-4'>
 				<div className='expense-inputs'>
 					<div className='grid gap-4'>
-						<label className='text-navy text-lg' htmlFor='newExpense'>
+						<label className='text-navy text-lg' htmlFor='expenseName'>
 							Expense Name
 						</label>
 						<input
 							className='text-navy rounded-lg ring-2 ring-navy py-2 px-4'
 							type='text'
-							name='newExpense'
-							id='newExpense'
+							name='name'
+							id='expenseName'
 							placeholder='e.g., Coffee'
-							ref={focusRef}
 							required
 						/>
 					</div>
 					<div className='grid gap-4'>
-						<label className='text-navy text-lg' htmlFor='newExpenseAmount'>
+						<label className='text-navy text-lg' htmlFor='expenseAmount'>
 							Amount
 						</label>
 						<input
@@ -49,48 +73,37 @@ export function AddExpenseForm({ budgets }) {
 							type='number'
 							step='0.01'
 							inputMode='decimal'
-							name='newExpenseAmount'
-							id='newExpenseAmount'
+							name='amount'
+							id='expenseAmount'
 							placeholder='e.g., 3.50'
 							required
 						/>
 					</div>
 				</div>
 				<div className='grid gap-4' hidden={budgets.length === 1}>
-					<label className='text-navy text-lg' htmlFor='newExpenseBudget'>
+					<label className='text-navy text-lg' htmlFor='budgetId'>
 						Budget Category
 					</label>
 					<select
-						name='newExpenseBudget'
+						name='budgetId'
 						className='rounded-lg py-2 px-4 ring-2 ring-navy'
-						id='newExpenseBudget'
+						id='budgetId'
 						required>
-						{budgets
-							.sort((a, b) => a.createdAt - b.createdAt)
-							.map((budget) => {
-								return (
-									<option key={budget.id} value={budget.id}>
-										{budget.name}
-									</option>
-								);
-							})}
+						{budgets.map((budget) => {
+							return (
+								<option key={budget.id} value={budget.id}>
+									{budget.name}
+								</option>
+							);
+						})}
 					</select>
 				</div>
-				<input type='hidden' name='_action' value='createExpense' />
 				<button
 					type='submit'
-					className='px-6 py-2 mt-2 flex gap-2 bg-fluo items-center rounded-md hover:bg-fluo/80 transition-all duration-300 max-w-[220px]'
-					disabled={isSubmitting}>
-					{isSubmitting ? (
-						<span>Submitting…</span>
-					) : (
-						<>
-							<span className='text-lg text-navy'>Add Expense</span>
-							<FaFileCirclePlus className='w-5 h-5 text-navy' />
-						</>
-					)}
+					className='px-6 py-2 mt-2 flex gap-2 bg-fluo items-center rounded-md hover:bg-fluo/80 transition-all duration-300 max-w-[220px]'>
+					<span className='text-lg text-navy'>Add Expense</span>
 				</button>
-			</fetcher.Form>
+			</form>
 		</div>
 	);
 }
